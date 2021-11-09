@@ -1,7 +1,9 @@
 const express = require('express');
+const morgan = require('morgan');
 const bodyParser = require('body-parser');
 const app = express();
-app.use(bodyParser.urlencoded({extended: true}));
+app.use(morgan('short'));
+app.use(express.urlencoded({extended: true}));
 const PORT = 8080;
 
 app.set('view engine', 'ejs');
@@ -12,11 +14,16 @@ const urlDatabase = {
 };
 
 function generateRandomString() {
-
+  let str = ''
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  for (let i = 0; i < 6; i++) {
+    str += characters.charAt(Math.floor(Math.random() * 62))
+  }
+  return str;
 }
 
 app.get('/', (req, res) => {
-  res.send('Hello!');
+  res.send('Hello! Welcome to TinyURL!');
 });
 
 app.listen(PORT, () => {
@@ -36,16 +43,34 @@ app.get('/urls', (req, res) => {
   res.render('urls_index', templateVars);
 });
 
+// Add new URL
 app.get('/urls/new', (req, res) => {
   res.render('urls_new');
 });
 
 app.post('/urls', (req, res) => {
-  console.log(req.body);
-  res.send('Ok');
+  // console.log(req.body);
+  // res.send('Ok');
+  const longURL = req.body.longURL;
+  const shortURL = generateRandomString();
+  urlDatabase[shortURL] = longURL;
+  // console.log(urlDatabase);
+  res.redirect(`/urls/${shortURL}`);
 })
 
 app.get('/urls/:shortURL', (req, res) => {
   const templateVars = { shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL] };
   res.render('urls_show', templateVars);
 });
+
+app.get('/u/:shortURL', (req, res) => {
+  const longURL = urlDatabase[shortURL];
+  // console.log(longURL);
+  res.redirect(longURL);
+})
+
+app.post('/urls/:shortURL/delete', (req, res) => {
+  const shortURL = req.params.shortURL;
+  delete urlDatabase[shortURL];
+  res.redirect('/urls');
+})
