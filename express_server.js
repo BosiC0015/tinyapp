@@ -4,7 +4,7 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const app = express();
 app.use(morgan('short'));
-app.use(bodyParser.urlencoded({extended: true}));
+app.use(bodyParser.urlencoded({extended: false}));
 app.use(cookieParser());
 const PORT = 8080;
 
@@ -41,7 +41,10 @@ app.get("/hello", (req, res) => {
 });
 
 app.get('/urls', (req, res) => {
-  const templateVars = { urls: urlDatabase };
+  const templateVars = {
+    username: req.cookies.username,
+    urls: urlDatabase
+  };
   res.render('urls_index', templateVars);
 });
 
@@ -88,22 +91,21 @@ app.post('/urls/:shortURL', (req, res) => {
 })
 
 // Login
-app.get('/login', (req, res) => {
-  res.render('urls_index');
-})
-
 app.post('/login', (req, res) => {
   console.log(req.body);
+  res.cookie('username', req.body);
   res.redirect('/urls');
 })
 
-
-// Logout
-app.get('/url', (req, res) => {
-
+app.get('/urls', (req, res) => {
+  const templateVars = {
+    username: req.cookies["username"],
+  };
+  res.render("urls_index", templateVars);
 })
 
-app.post('logout', (req, res) => {
+// Logout
+app.post('/logout', (req, res) => {
   res.clearCookie('username');
   res.redirect('/urls');
 })
