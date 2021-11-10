@@ -1,9 +1,11 @@
 const express = require('express');
 const morgan = require('morgan');
 const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser');
 const app = express();
 app.use(morgan('short'));
-app.use(express.urlencoded({extended: true}));
+app.use(bodyParser.urlencoded({extended: true}));
+app.use(cookieParser());
 const PORT = 8080;
 
 app.set('view engine', 'ejs');
@@ -82,5 +84,26 @@ app.post('/urls/:shortURL', (req, res) => {
   const shortURL = req.params.shortURL;
   const longURL = req.body.longURL;
   urlDatabase[shortURL] = longURL;
+  res.redirect('/urls');
+})
+
+// Login
+app.get('/login', (req, res) => {
+  res.render('urls_index');
+})
+
+app.post('/login', (req, res) => {
+  console.log(req.body);
+  res.redirect('/urls');
+})
+
+
+// Logout
+app.get('/url', (req, res) => {
+
+})
+
+app.post('logout', (req, res) => {
+  res.clearCookie('username');
   res.redirect('/urls');
 })
