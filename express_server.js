@@ -2,6 +2,7 @@ const express = require('express');
 const morgan = require('morgan');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
+const bcrypt = require('bcryptjs');
 const app = express();
 app.use(morgan('short'));
 app.use(bodyParser.urlencoded({extended: false}));
@@ -14,12 +15,12 @@ const users = {
   "userRandomID": {
     id: "userRandomID", 
     email: "user@example.com", 
-    password: "purple-monkey-dinosaur"
+    hashedPassword: bcrypt.hashSync("purple-monkey-dinosaur", 10)
   },
  "user2RandomID": {
     id: "user2RandomID", 
     email: "user2@example.com", 
-    password: "dishwasher-funk"
+    hashedPassword: bcrypt.hashSync("dishwasher-funk", 10)
   }
 }
 
@@ -46,6 +47,17 @@ const findEmail = function(email) {
   return null;
 }
 
+const urlsForUser = function(id) {
+  const urlDBForUser = {};
+  for (shortURL in urlDatabase) {
+    if (id === urlDatabase[shortURL].userID) {
+      urlDBForUser[shortURL] = urlDatabase[shortURL].longURL;
+      return urlDBForUser;
+    }
+  }
+}
+// const userUrlDB;
+
 app.get('/', (req, res) => {
   res.send('Hello! Welcome to TinyURL!');
 });
@@ -54,20 +66,20 @@ app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}!`)
 })
 
-app.get("/urls.json", (req, res) => {
-  res.json(urlDatabase);
-});
+// app.get("/urls.json", (req, res) => {
+//   res.json(urlDatabase);
+// });
+// app.get("/hello", (req, res) => {
+//   res.send("<html><body>Hello <b>World</b></body></html>\n");
+// });
 
-app.get("/hello", (req, res) => {
-  res.send("<html><body>Hello <b>World</b></body></html>\n");
-});
-
+// GET urls
 app.get('/urls', (req, res) => {
   const user_id = req.cookies.user_id;
   const user = users[user_id];
   const templateVars = {
     user: user,
-    urls: urlDatabase
+    urls: urlsForUser(user_id)
   };
   res.render('urls_index', templateVars);
 });
@@ -95,7 +107,7 @@ app.post('/urls', (req, res) => {
   urlDatabase[shortURL] = {};
   urlDatabase[shortURL].longURL = longURL;
   urlDatabase[shortURL].userID = user_id;
-  // console.log(urlDatabase); // for checking
+  console.log(urlDatabase); // for checking
   res.redirect(`/urls/${shortURL}`);
 })
 
@@ -122,6 +134,9 @@ app.get('/u/:shortURL', (req, res) => {
 
 // Delete
 app.post('/urls/:shortURL/delete', (req, res) => {
+  if (!user_id) {
+    res.redirect('/login')
+  }
   const shortURL = req.params.shortURL;
   delete urlDatabase[shortURL].longURL;
   res.redirect('/urls');
@@ -152,13 +167,15 @@ app.get('/login', (req, res) => {
 app.post('/login', (req, res) => {
   console.log('req.body post in login', req.body);
   const user = findEmail(req.body.email);
+  const password = req.body.password;
+  const hashedPassword = bcrypt.hashSync(password, 10);
   if (user) {
-    if (req.body.password === user.password) {
+    if (bcrypt.compareSync(password, hashedPassword)) {
       res.cookie('user_id', user.id);
       res.redirect('/urls');
     } else {
       res.status('403');
-      res.send('Login failed! Password does not match!')
+      res.send('Login failed! Wrong Password!')
     }
   } else {
     res.status('403');
@@ -168,6 +185,7 @@ app.post('/login', (req, res) => {
 
 // Logout
 app.post('/logout', (req, res) => {
+  // userDatabase += userUrlDB;
   res.clearCookie('user_id');
   res.redirect('/urls');
 })
@@ -195,11 +213,13 @@ app.post('/register', (req, res) => {
     const id = generateRandomString();
     const email = req.body.email;
     const password = req.body.password;
+    const hashedPassword = bcrypt.hashSync(password, 10);
     users[id] = user;
     user.id = id;
     user.email = email;
-    user.password = password;
-    // console.log('users: ', users);
+    // user.password = password; <-- no password needed anymore
+    user.hashedPassword = hashedPassword;
+    // console.log('users: ', users); // for checking
     res.cookie('user_id', id);
     res.redirect('/urls');
   }
