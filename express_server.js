@@ -24,8 +24,8 @@ const users = {
 }
 
 const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+  "b2xVn2": {longURL: "http://www.lighthouselabs.ca"},
+  "9sm5xK": {longURL: "http://www.google.com"}
 };
 
 function generateRandomString() {
@@ -75,6 +75,10 @@ app.get('/urls', (req, res) => {
 // Add new URL
 app.get('/urls/new', (req, res) => {
   const user_id = req.cookies.user_id;
+  // Only registered and logged in user can add new urls
+  if (!user_id) {
+    res.redirect('/login')
+  }
   const user = users[user_id];
   const templateVars = {
     user: user
@@ -85,10 +89,13 @@ app.get('/urls/new', (req, res) => {
 app.post('/urls', (req, res) => {
   // console.log(req.body);
   // res.send('Ok');
+  const user_id = req.cookies.user_id;
   const longURL = req.body.longURL;
   const shortURL = generateRandomString();
-  urlDatabase[shortURL] = longURL;
-  // console.log(urlDatabase);
+  urlDatabase[shortURL] = {};
+  urlDatabase[shortURL].longURL = longURL;
+  urlDatabase[shortURL].userID = user_id;
+  // console.log(urlDatabase); // for checking
   res.redirect(`/urls/${shortURL}`);
 })
 
@@ -98,22 +105,25 @@ app.get('/urls/:shortURL', (req, res) => {
   const templateVars = {
     user: user,
     shortURL: req.params.shortURL,
-    longURL: urlDatabase[req.params.shortURL]
+    longURL: urlDatabase[req.params.shortURL].longURL
   };
   res.render('urls_show', templateVars);
 });
 
 app.get('/u/:shortURL', (req, res) => {
+  console.log(urlDatabase)
   const shortURL = req.params.shortURL;
-  const longURL = urlDatabase[shortURL];
-  // console.log(longURL);
+  if (!Object.keys(urlDatabase).includes(shortURL)) {
+    res.send('Short URL does not exist!')
+  }
+  const longURL = urlDatabase[shortURL].longURL;
   res.redirect(longURL);
 })
 
 // Delete
 app.post('/urls/:shortURL/delete', (req, res) => {
   const shortURL = req.params.shortURL;
-  delete urlDatabase[shortURL];
+  delete urlDatabase[shortURL].longURL;
   res.redirect('/urls');
 })
 
@@ -121,13 +131,17 @@ app.post('/urls/:shortURL/delete', (req, res) => {
 app.post('/urls/:shortURL', (req, res) => {
   const shortURL = req.params.shortURL;
   const longURL = req.body.longURL;
-  urlDatabase[shortURL] = longURL;
+  urlDatabase[shortURL].longURL = longURL;
   res.redirect('/urls');
 })
 
 // Login
 app.get('/login', (req, res) => {
   const user_id = req.cookies.user_id;
+  // redirecting when logged in
+  if (user_id) {
+    res.redirect('/urls')
+  }
   const user = users[user_id];
   const templateVars = {
     user: user
@@ -185,7 +199,7 @@ app.post('/register', (req, res) => {
     user.id = id;
     user.email = email;
     user.password = password;
-    console.log('users: ', users);
+    // console.log('users: ', users);
     res.cookie('user_id', id);
     res.redirect('/urls');
   }
