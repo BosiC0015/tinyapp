@@ -2,11 +2,16 @@ const express = require('express');
 const morgan = require('morgan');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
+const cookieSession = require('cookie-session');
 const bcrypt = require('bcryptjs');
 const app = express();
 app.use(morgan('short'));
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(cookieParser());
+app.use(cookieSession({
+  name: 'session',
+  keys: ['Security more and more', 'This is key2'],
+}));
 const PORT = 8080;
 
 app.set('view engine', 'ejs');
@@ -15,7 +20,7 @@ const users = {
   "userRandomID": {
     id: "userRandomID", 
     email: "user@example.com", 
-    hashedPassword: bcrypt.hashSync("purple-monkey-dinosaur", 10)
+    hashedPassword: bcrypt.hashSync("purple-mokey-dinosaur", 10)
   },
  "user2RandomID": {
     id: "user2RandomID", 
@@ -38,14 +43,7 @@ function generateRandomString() {
   return str;
 }
 
-const findEmail = function(email) {
-  for (id in users) {
-    if (email === users[id].email) {
-      return users[id];
-    }
-  }
-  return null;
-}
+const { getUserByEmail } = require('./helper');
 
 const urlsForUser = function(id) {
   const urlDBForUser = {};
@@ -75,18 +73,18 @@ app.listen(PORT, () => {
 
 // GET urls
 app.get('/urls', (req, res) => {
-  const user_id = req.cookies.user_id;
+  const user_id = req.session.user_id;
   const user = users[user_id];
   const templateVars = {
     user: user,
-    urls: urlsForUser(user_id)
+    urls: urlDatabase
   };
   res.render('urls_index', templateVars);
 });
 
 // Add new URL
 app.get('/urls/new', (req, res) => {
-  const user_id = req.cookies.user_id;
+  const user_id = req.session.user_id;
   // Only registered and logged in user can add new urls
   if (!user_id) {
     res.redirect('/login')
@@ -101,7 +99,7 @@ app.get('/urls/new', (req, res) => {
 app.post('/urls', (req, res) => {
   // console.log(req.body);
   // res.send('Ok');
-  const user_id = req.cookies.user_id;
+  const user_id = req.session.user_id;
   const longURL = req.body.longURL;
   const shortURL = generateRandomString();
   urlDatabase[shortURL] = {};
@@ -112,7 +110,7 @@ app.post('/urls', (req, res) => {
 })
 
 app.get('/urls/:shortURL', (req, res) => {
-  const user_id = req.cookies.user_id;
+  const user_id = req.session.user_id;
   const user = users[user_id];
   const templateVars = {
     user: user,
@@ -152,7 +150,7 @@ app.post('/urls/:shortURL', (req, res) => {
 
 // Login
 app.get('/login', (req, res) => {
-  const user_id = req.cookies.user_id;
+  const user_id = req.session.user_id;
   // redirecting when logged in
   if (user_id) {
     res.redirect('/urls')
@@ -165,13 +163,13 @@ app.get('/login', (req, res) => {
 })
 
 app.post('/login', (req, res) => {
-  console.log('req.body post in login', req.body);
-  const user = findEmail(req.body.email);
+  // console.log('req.body post in login', req.body);
+  const user = getUserByEmail(req.body.email, users);
   const password = req.body.password;
   const hashedPassword = bcrypt.hashSync(password, 10);
   if (user) {
     if (bcrypt.compareSync(password, hashedPassword)) {
-      res.cookie('user_id', user.id);
+      req.session.user_id = user.id;
       res.redirect('/urls');
     } else {
       res.status('403');
@@ -186,13 +184,14 @@ app.post('/login', (req, res) => {
 // Logout
 app.post('/logout', (req, res) => {
   // userDatabase += userUrlDB;
-  res.clearCookie('user_id');
+  // res.clearCookie('user_id');
+  req.session = null;
   res.redirect('/urls');
 })
 
 // Register
 app.get('/register', (req, res) => {
-  const user_id = req.cookies.user_id;
+  const user_id = req.session.user_id;
   const user = users[user_id];
   const templateVars = {
     user: user
@@ -205,7 +204,7 @@ app.post('/register', (req, res) => {
   if (req.body.email === '' || req.body.password === '') {
     res.status(400);
     res.send('Error: Please input a valid email or password');
-  } else if (findEmail(req.body.email)) {
+  } else if (getUserByEmail(req.body.email, users)) {
     res.status(400);
     res.send(`${req.body.email} has already been registered!`)
   } else {
@@ -220,7 +219,7 @@ app.post('/register', (req, res) => {
     // user.password = password; <-- no password needed anymore
     user.hashedPassword = hashedPassword;
     // console.log('users: ', users); // for checking
-    res.cookie('user_id', id);
+    req.session.user_id = id;
     res.redirect('/urls');
   }
 })
