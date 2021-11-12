@@ -105,6 +105,7 @@ app.post('/urls', (req, res) => {
   urlDatabase[shortURL] = {};
   urlDatabase[shortURL].longURL = longURL;
   urlDatabase[shortURL].userID = user_id;
+  const urlOfUserID = urlsForUser(user_id)
   res.redirect(`/urls/${shortURL}`);
 });
 
@@ -131,11 +132,13 @@ app.get('/urls/:shortURL', (req, res) => {
 });
 
 app.get('/u/:shortURL', (req, res) => {
+  const user_id = req.session.user_id;
   const shortURL = req.params.shortURL;
-  if (!Object.keys(urlDatabase).includes(shortURL)) {
-    res.send('Short URL does not exist! Please <a href="/urls">try again</a>.');
+  const urlOfUserID = urlsForUser(user_id);
+  if (!Object.keys(urlOfUserID).includes(shortURL)) {
+    res.send('URL does not resist! Please <a href="/urls">try again</a>.');
   }
-  const longURL = urlDatabase[shortURL].longURL;
+  const longURL = urlOfUserID[shortURL].longURL;
   res.redirect(longURL);
 });
 
